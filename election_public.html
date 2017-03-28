@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <script type="text/javascript" src="cordova.js"></script>
+    <style>
+        #pic1 {
+            z-index: 1;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        #pic2 {
+            z-index: 2;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        #pic3 {
+            z-index: 3;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+
+</head>
+
+<body onload="onPageLoad()">
+
+    <script type="text/javascript">
+        var accelerometer = {
+            service: "F000AA10-0451-4000-B000-000000000000",
+            data: "F000AA11-0451-4000-B000-000000000000", // read/notify 3 bytes X : Y : Z
+            configuration: "F000AA12-0451-4000-B000-000000000000", // read/write 1 byte
+            period: "F000AA13-0451-4000-B000-000000000000" // read/write 1 byte Period = [Input*10]ms
+        };
+
+        var peripheralId = null;
+
+        // onPageLoad()
+
+        function onPageLoad() {
+            document.addEventListener("deviceready", onDeviceReady, false);
+        }
+
+        function onDeviceReady() {
+            ble.scan([], 10, scanSuccess, scanFailure);
+        }
+
+        function scanSuccess(peripheral) {
+            console.log(peripheral);
+            // document.body.innerHTML = document.innerHTML + peripheral.name;
+
+            if (peripheral.id == "D5F34401-D9EE-46AE-A02F-852E56C70E06") {
+                ble.stopScan(stopScanSuccess, stopScanFailure);
+                console.log(peripheral);
+                console.log("Connecting");
+                ble.connect(peripheral.id, connectSuccess, connectFailure);
+            }
+        }
+
+        function scanFailure(err) {
+            console.log(err);
+        }
+
+        function stopScanSuccess() {
+            console.log("Stop Scan Success");
+        }
+
+        function stopScanFailure() {
+            console.log("Stop Scan Failure");
+        }
+
+        function connectSuccess(peripheral) {
+            console.log("Connected");
+            console.log(peripheral);
+
+            peripheralId = peripheral.id;
+            //console.log(foundPeripheral);
+
+            // Turn the accelerometer on
+            var configData = new Uint8Array(1);
+            configData[0] = 0x01;
+            ble.write(peripheral.id, accelerometer.service, accelerometer.configuration, configData.buffer,
+                function() {
+                    console.log("Started accelerometer.");
+                },
+                function() {
+                    console.log("Start accelerometer error");
+                });
+
+            // Do a read
+            ble.read(peripheral.id, accelerometer.service, accelerometer.data, readSuccess, readFailure);
+
+            // We want to be notified
+            // ble.startNotification(peripheral.id, accelerometer.service, accelerometer.data, notifySuccess, notifyError);
+
+        }
+
+        function connectFailure() {
+            console.log("Connection Failed");
+        }
+
+        function calMapping(value, low1, high1, low2, high2) {
+            return low2 + (high2 - low2) * (value - low1) / (high1 - low1);
+        }
+
+        function readSuccess(data) {
+            // console.log(data)
+            var a = new Uint8Array(data);
+
+            var message = "X: " + a[0] / 64 + "<br/>" +
+                "Y: " + a[1] / 64 + "<br/>" +
+                "Z: " + a[2] / 64 * -1;
+
+
+            var score1 = calMapping(a[0], 0, 255, 0, 1);
+            var score2 = calMapping(a[1], 0, 255, 0, 1);
+            var score3 = calMapping(a[2], 0, 255, 0, 1);
+            score1.toFixed(1);
+            score2.toFixed(1);
+            score3.toFixed(1);
+
+            console.log(a);
+            console.log(score1, score2, score3);
+            // document.body.innerHTML = message;
+            var pic1 = document.getElementById("pic1");
+            var pic2 = document.getElementById("pic2");
+            var pic3 = document.getElementById("pic3");
+
+            pic1.style.opacity = score1;
+            pic2.style.opacity = score2;
+            pic3.style.opacity = score3;
+
+
+
+            // console.log(message)
+
+            setTimeout(readAccel, 200);
+        }
+
+
+        function readAccel() {
+            ble.read(peripheralId, accelerometer.service, accelerometer.data, readSuccess, readFailure);
+        }
+
+        function readFailure(err) {
+            console.log(err);
+        }
+
+        function notifySuccess(data) {
+            console.log(data)
+            var a = new Uint8Array(data);
+
+            var message = "X: " + a[0] / 64 + "<br/>" +
+                "Y: " + a[1] / 64 + "<br/>" +
+                "Z: " + a[2] / 64 * -1;
+
+            // document.body.innerHTML = message;
+        }
+
+        function notifyError(err) {
+            console.log(err);
+        }
+    </script>
+    <img id="pic1" src="img/president1.jpg"></img>
+    <img id="pic2" src="img/president2.jpg"></img>
+    <img id="pic3" src="img/president3.jpg"></img>
+
+</body>
+
+</html>
